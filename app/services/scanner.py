@@ -21,7 +21,7 @@ import os
 import stat
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
@@ -119,6 +119,7 @@ class ScannerService:
         self.last_new_files = 0
         self.last_processed = 0
         self.last_errors = 0
+        self.last_skipped_old = 0
         self.last_status_counts: dict[str, int] = {}
         self.last_error: str | None = None
         self.input_available: bool | None = None
@@ -207,6 +208,7 @@ class ScannerService:
             "last_new_files": self.last_new_files,
             "last_processed": self.last_processed,
             "last_errors": self.last_errors,
+            "last_skipped_old": self.last_skipped_old,
             "last_status_counts": dict(self.last_status_counts),
             "last_error": self.last_error,
             "input_available": self.input_available,
@@ -367,6 +369,7 @@ class ScannerService:
         self.last_new_files = 0
         self.last_processed = 0
         self.last_errors = 0
+        self.last_skipped_old = 0
         now = time.monotonic()
         if now - self._unavailable_logged_at > 60:
             logger.warning("%s; scanner will retry", message)
@@ -441,6 +444,22 @@ class ScannerService:
         now = utc_now()
         candidates: list[ScanCandidate] = []
         skipped = 0
+        too_old = 0
+        self.last_skipped_old = 0
+
+        # The age filter must never cause an already processed file to be
+        # re-examined, therefore dedup checks run first.  It applies only to
+        # files without a matching terminal record; pending/error/stale
+        # processing records are always retried so restart recovery cannot
+        # lose a document that was queued before a long outage.
+        window_seconds = None
+        if self.settings.process_files_newer_than_hours > 0:
+            window_seconds = self.settings.process_files_newer_than_hours * 3600
+            # Allow for the stability grace period: a file may take a while to
+            # finish writing and must not fall out of the window while we wait.
+            window_seconds += (
+                self.settings.file_stability_checks * self.settings.file_stability_interval + 300
+            )
 
         for relative, path, size, mtime_ns in found:
             state = latest.get(relative)
@@ -471,6 +490,14 @@ class ScannerService:
             else:
                 is_new = True
 
+            if window_seconds is not None and (
+                state is None or state.status in TERMINAL_STATUSES
+            ):
+                file_time = datetime.fromtimestamp(mtime_ns / 1_000_000_000, tz=UTC)
+                if now - file_time > timedelta(seconds=window_seconds):
+                    too_old += 1
+                    continue
+
             candidates.append(
                 ScanCandidate(
                     absolute_path=path,
@@ -479,6 +506,16 @@ class ScannerService:
                     mtime_ns=mtime_ns,
                     is_new=is_new,
                 )
+            )
+
+        if too_old and (
+            self.settings.process_files_newer_than_hours > 0
+        ):
+            self.last_skipped_old = too_old
+            logger.info(
+                "Ignored %s file(s) older than PROCESS_FILES_NEWER_THAN_HOURS=%s",
+                too_old,
+                self.settings.process_files_newer_than_hours,
             )
 
         return candidates, skipped

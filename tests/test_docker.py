@@ -69,6 +69,7 @@ def test_env_example_contains_required_settings() -> None:
         "SCAN_INTERVAL",
         "FILE_STABILITY_CHECKS",
         "FILE_STABILITY_INTERVAL",
+        "PROCESS_FILES_NEWER_THAN_HOURS",
         "PDF_DPI",
         "MAX_PDF_PAGES",
         "WEB_HOST",
@@ -81,6 +82,7 @@ def test_env_example_contains_required_settings() -> None:
     assert required <= set(values)
     assert values["WEB_PASSWORD"] != ""
     assert values["TZ"] == "Europe/Moscow"
+    assert values["PROCESS_FILES_NEWER_THAN_HOURS"] == "24"
 
 
 def test_dockerignore_excludes_secrets_and_test_data() -> None:

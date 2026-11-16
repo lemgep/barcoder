@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import os
 import time
 from datetime import timedelta
 from pathlib import Path
@@ -272,3 +273,93 @@ async def test_scanner_ignores_hidden_and_unsupported_files(
     (settings.input_dir / "archive.png.part").write_bytes(b"x")
     counts = await scanner.scan_once()
     assert counts == {"new": 0, "processed": 0, "errors": 0}
+
+
+def _age_file(path: Path, hours: float) -> None:
+    timestamp = time.time() - hours * 3600
+    os.utime(path, (timestamp, timestamp))
+
+
+async def test_files_older_than_window_are_ignored(
+    scanner: ScannerService, settings: Settings, db: Database
+) -> None:
+    add_mapping(db, "OLD-1", "Иванов")
+    old_source = save_barcode(settings.input_dir / "old.png", "OLD-1")
+    _age_file(old_source, settings.process_files_newer_than_hours + 2)
+
+    counts = await scanner.scan_once()
+    assert counts == {"new": 0, "processed": 0, "errors": 0}
+    assert scanner.status()["last_skipped_old"] == 1
+    assert not (settings.output_dir / "Иванов").exists() or not list(
+        (settings.output_dir / "Иванов").iterdir()
+    )
+
+    fresh_source = save_barcode(settings.input_dir / "fresh.png", "OLD-1")
+    counts = await scanner.scan_once()
+    assert counts["processed"] == 1
+    assert len(list((settings.output_dir / "Иванов").iterdir())) == 1
+    assert fresh_source.exists() and old_source.exists()
+
+
+async def test_changed_old_file_enters_window_after_update(
+    scanner: ScannerService, settings: Settings, db: Database
+) -> None:
+    add_mapping(db, "AGE-1", "Петров")
+    source = save_barcode(settings.input_dir / "scan.png", "AGE-1")
+    # Simulate a file that was ignored before, then re-written by the scanner.
+    _age_file(source, settings.process_files_newer_than_hours + 10)
+    assert (await scanner.scan_once())["processed"] == 0
+
+    os.utime(source, None)  # "new" modification time == just written
+    counts = await scanner.scan_once()
+    assert counts["processed"] == 1
+
+
+async def test_already_processed_fresh_file_is_not_reprocessed(
+    scanner: ScannerService, settings: Settings, db: Database
+) -> None:
+    add_mapping(db, "FRESH-1", "Иванов")
+    save_barcode(settings.input_dir / "fresh.png", "FRESH-1")
+    first = await scanner.scan_once()
+    second = await scanner.scan_once()
+    assert first["processed"] == 1
+    assert second == {"new": 0, "processed": 0, "errors": 0}
+    assert len(list((settings.output_dir / "Иванов").iterdir())) == 1
+
+
+async def test_zero_window_processes_everything(
+    settings: Settings, db: Database, processor: DocumentProcessor
+) -> None:
+    settings.process_files_newer_than_hours = 0
+    scanner = ScannerService(settings, db, processor)
+    add_mapping(db, "ALL-1", "Сидоров")
+    source = save_barcode(settings.input_dir / "archive.png", "ALL-1")
+    _age_file(source, 24 * 365)
+    counts = await scanner.scan_once()
+    assert counts["processed"] == 1
+    assert scanner.status()["last_skipped_old"] == 0
+
+
+async def test_old_queued_document_is_recovered_despite_window(
+    scanner: ScannerService, settings: Settings, db: Database
+) -> None:
+    add_mapping(db, "QUEUED-1", "Иванов")
+    source = save_barcode(settings.input_dir / "queued.png", "QUEUED-1")
+    _age_file(source, settings.process_files_newer_than_hours + 48)
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    stat = source.stat()
+    with db.session() as session:
+        session.add(
+            Document(
+                source_path=source.name,
+                file_name=source.name,
+                sha256=digest,
+                size_bytes=stat.st_size,
+                source_mtime_ns=stat.st_mtime_ns,
+                status="pending",
+            )
+        )
+
+    counts = await scanner.scan_once()
+    assert counts["processed"] == 1
+    assert len(list((settings.output_dir / "Иванов").iterdir())) == 1

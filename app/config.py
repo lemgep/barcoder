@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     retry_max_seconds: int = Field(default=3600, ge=1, le=604800)
     stale_processing_seconds: int = Field(default=900, ge=30, le=86400)
     scanner_enabled: bool = True
+    # Only documents modified within this window are processed. 0 disables the
+    # filter and processes every supported file in INPUT_DIR (useful for a
+    # one-off archive import). Applies on top of SHA-256 deduplication.
+    process_files_newer_than_hours: float = Field(default=24.0, ge=0, le=8760)
 
     # --- document processing ----------------------------------------------
     pdf_dpi: int = Field(default=200, ge=72, le=600)
