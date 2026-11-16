@@ -18,6 +18,8 @@
 
 ## Содержание
 
+- [Быстрый старт на Ubuntu Server (пошагово)](#быстрый-старт-на-ubuntu-server-пошагово)
+
 1. [Возможности](#1-возможности)
 2. [Как приложение защищает исходную папку](#2-как-приложение-защищает-исходную-папку)
 3. [Архитектура](#3-архитектура)
@@ -42,6 +44,210 @@
 22. [Решение типичных проблем](#22-решение-типичных-проблем)
 23. [Ограничения](#23-ограничения)
 24. [Итоговый чек-лист развёртывания](#24-итоговый-чек-лист-развёртывания)
+
+---
+
+## Быстрый старт на Ubuntu Server (пошагово)
+
+Краткая инструкция для чистой Ubuntu 22.04/24.04. Подробности по каждому
+пункту — в разделах 5–11 ниже.
+
+### Шаг 1. Обновить систему и установить Docker
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+Выйдите из сессии и войдите снова (или выполните `newgrp docker`), затем
+проверьте:
+
+```bash
+docker --version
+docker compose version
+```
+
+### Шаг 2. Смонтировать сетевую папку со сканами
+
+```bash
+sudo apt install -y cifs-utils
+sudo mkdir -p /mnt/network/scans
+
+sudo tee /etc/cifs-scans.credentials > /dev/null <<'EOF'
+username=scanuser
+password=СЕКРЕТ
+domain=WORKGROUP
+EOF
+sudo chmod 600 /etc/cifs-scans.credentials
+
+# Добавить строку в /etc/fstab:
+echo '//fileserver/scans /mnt/network/scans cifs credentials=/etc/cifs-scans.credentials,ro,uid=1000,gid=1000,iocharset=utf8,vers=3.1.1,nofail,_netdev 0 0' \
+  | sudo tee -a /etc/fstab
+
+sudo mount -a
+ls -la /mnt/network/scans
+```
+
+Флаг `ro` защищает источник на уровне ОС. Изменения, которые пишет сканер со
+своей стороны, всё равно видны.
+
+### Шаг 3. Клонировать репозиторий
+
+```bash
+sudo mkdir -p /opt/barcode-sorter
+sudo chown "$USER":"$USER" /opt/barcode-sorter
+git clone https://github.com/lemgep/barcoder.git /opt/barcode-sorter
+cd /opt/barcode-sorter
+```
+
+Приватный доступ по SSH:
+
+```bash
+git clone git@github.com:lemgep/barcoder.git /opt/barcode-sorter
+```
+
+### Шаг 4. Подготовить каталоги
+
+Контейнер работает под UID/GID `1000`, поэтому каталоги записи должны
+принадлежать этому пользователю:
+
+```bash
+sudo mkdir -p /mnt/documents/sorted
+sudo chown -R 1000:1000 /mnt/documents/sorted
+sudo chmod 750 /mnt/documents/sorted
+
+cd /opt/barcode-sorter
+mkdir -p data logs
+sudo chown -R 1000:1000 data logs
+chmod 700 data
+chmod 750 logs
+```
+
+Если UID 1000 на сервере занят другим сервисом, пересоберите образ с
+`APP_UID`/`APP_GID` и назначьте эти UID на каталоги (раздел 8).
+
+### Шаг 5. Настроить `.env`
+
+```bash
+cp .env.example .env
+chmod 600 .env
+nano .env
+```
+
+Обязательно изменить:
+
+```dotenv
+INPUT_DIR=/mnt/network/scans
+OUTPUT_DIR=/mnt/documents/sorted
+DATA_DIR=./data
+WEB_PASSWORD=НАДЁЖНЫЙ_ПАРОЛЬ
+TZ=Europe/Moscow
+```
+
+Сгенерировать пароль: `openssl rand -base64 32`.
+
+Проверить значение, которое видит Docker Compose:
+
+```bash
+docker compose config
+```
+
+В секции `volumes` для `/app/input` должно быть `read_only: true`.
+
+### Шаг 6. Собрать и запустить
+
+```bash
+cd /opt/barcode-sorter
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+Ожидаемый статус: `Up ... (healthy)`. Подождите 30–60 секунд: первая сборка
+скачивает базовый образ и зависимости.
+
+Проверить приложение:
+
+```bash
+curl http://127.0.0.1:8000/healthz
+docker compose logs -f
+```
+
+### Шаг 7. Открыть веб-интерфейс
+
+```
+http://IP-СЕРВЕРА:8000/
+```
+
+Логин — `WEB_USERNAME`, пароль — `WEB_PASSWORD` из `.env`.
+
+1. Откройте «База штрихкодов» и добавьте соответствие или импортируйте CSV.
+2. Проверьте блок «Состояние сканера»: исходная папка «доступна» и
+   «read-only», сканер «Работает».
+3. Положите тестовый скан в `INPUT_DIR` и убедитесь, что копия появилась в
+   `OUTPUT_DIR/<Фамилия>/`.
+
+### Шаг 8. Проверить безопасность и закрыть доступ
+
+```bash
+# Исходная папка только для чтения внутри контейнера
+docker compose exec barcode-sorter sh -c 'touch /app/input/test' || echo "OK: input is read-only"
+
+# Контейнер не root и без привилегий
+docker compose exec barcode-sorter id
+docker inspect barcode-sorter --format 'readonly_rootfs={{.HostConfig.ReadonlyRootfs}} privileged={{.HostConfig.Privileged}}'
+```
+
+Не публикуйте порт в интернет. Вариант для доступа из локальной сети —
+ограничьте файрволом:
+
+```bash
+sudo ufw allow from 192.168.0.0/16 to any port 8000 proto tcp
+```
+
+Для доступа через HTTPS поставьте nginx/Caddy, задайте в `.env`
+`WEB_BIND=127.0.0.1`, `SESSION_HTTPS_ONLY=true` и
+`ALLOWED_HOSTS=scans.example.local`, затем `docker compose up -d`.
+
+### Шаг 9. Включить автозапуск и обслуживание
+
+```bash
+# Автозапуск: политика restart: unless-stopped уже задана в compose.
+sudo systemctl enable docker
+
+# Обновление
+cd /opt/barcode-sorter
+git pull
+docker compose build
+docker compose up -d
+
+# Остановка без потери данных
+docker compose down
+
+# Логи
+docker compose logs -f
+```
+
+> `docker compose down` удаляет только контейнер и сеть. База данных,
+> отсортированные документы и логи лежат в bind-mount каталогах хоста и
+> сохраняются. В проекте нет команд автоматического удаления данных.
+
+Резервная копия БД перед обновлением описана в разделе 18.
 
 ---
 
