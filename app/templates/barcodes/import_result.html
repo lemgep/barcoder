@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Результат импорта CSV — Сортировка сканов{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9">
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Результат импорта CSV</div>
+      <div class="card-body">
+        {% if filename %}
+        <p class="text-secondary small mb-3">Файл: {{ filename }}</p>
+        {% endif %}
+
+        {% if fatal_error %}
+        <div class="alert alert-danger" role="alert">{{ fatal_error }}</div>
+        {% elif report %}
+        <div class="row row-cols-1 row-cols-sm-3 g-3 mb-4">
+          <div class="col">
+            <div class="border rounded p-3 text-center">
+              <div class="stat-value text-success">{{ report.imported }}</div>
+              <div class="stat-label">Добавлено</div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="border rounded p-3 text-center">
+              <div class="stat-value text-warning-emphasis">{{ report.skipped }}</div>
+              <div class="stat-label">Пропущено</div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="border rounded p-3 text-center">
+              <div class="stat-value text-danger">{{ report.error_count }}</div>
+              <div class="stat-label">Ошибок</div>
+            </div>
+          </div>
+        </div>
+
+        {% if report.errors %}
+        <h2 class="h6">Ошибки и пропуски</h2>
+        <ul class="list-group list-group-flush mb-4 log-message">
+          {% for message in report.errors %}
+          <li class="list-group-item small">{{ message }}</li>
+          {% endfor %}
+        </ul>
+        {% elif report.imported %}
+        <div class="alert alert-success" role="status">Все строки импортированы без ошибок.</div>
+        {% else %}
+        <div class="alert alert-info" role="status">Новых записей для импорта нет.</div>
+        {% endif %}
+        {% endif %}
+
+        <a class="btn btn-primary" href="/barcodes">К базе штрихкодов</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

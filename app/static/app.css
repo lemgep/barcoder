@@ -1,0 +1,85 @@
+:root {
+  --app-bg: #f4f6f8;
+  --app-nav: #1f2d3d;
+}
+
+body {
+  background: var(--app-bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1 0 auto;
+}
+
+.app-navbar {
+  background: var(--app-nav);
+}
+
+.app-navbar .nav-link {
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.35rem 0.65rem;
+}
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 0.35rem;
+}
+
+.login-row {
+  min-height: 65vh;
+}
+
+.card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.6rem;
+}
+
+.stat-card .stat-value {
+  font-size: 1.55rem;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.stat-card .stat-label {
+  color: #6c757d;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.file-name,
+.barcode-cell,
+.log-message {
+  overflow-wrap: anywhere;
+}
+
+.barcode-cell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+}
+
+.log-message {
+  white-space: pre-wrap;
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.55rem 0.65rem;
+}
+
+.app-footer {
+  flex-shrink: 0;
+}
+
+@media (max-width: 575.98px) {
+  .stat-card .stat-value {
+    font-size: 1.25rem;
+  }
+  .navbar-brand {
+    font-size: 1rem;
+  }
+}

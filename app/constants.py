@@ -1,0 +1,24 @@
+"""Shared constants for output layout."""
+
+from __future__ import annotations
+
+from app.models.processing import (
+    STATUS_NEEDS_REVIEW,
+    STATUS_UNMATCHED,
+    STATUS_UNREADABLE,
+)
+
+DIR_UNMATCHED = "UNMATCHED"
+DIR_UNREADABLE = "UNREADABLE"
+DIR_NEEDS_REVIEW = "NEEDS_REVIEW"
+
+SERVICE_DIRECTORIES = (DIR_UNMATCHED, DIR_UNREADABLE, DIR_NEEDS_REVIEW)
+
+STATUS_TO_DIRECTORY = {
+    STATUS_UNMATCHED: DIR_UNMATCHED,
+    STATUS_UNREADABLE: DIR_UNREADABLE,
+    STATUS_NEEDS_REVIEW: DIR_NEEDS_REVIEW,
+}
+
+# A surname is a single path component, never a path.
+MAX_COMPONENT_BYTES = 200

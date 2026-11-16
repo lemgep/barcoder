@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Главная — Сортировка сканов{% endblock %}
+{% block content %}
+<div id="dashboard-content"
+     hx-get="{{ url_for('dashboard_partial') }}"
+     hx-trigger="every 5s"
+     hx-swap="innerHTML">
+  {% include "partials/dashboard_content.html" %}
+</div>
+{% endblock %}

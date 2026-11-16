@@ -1,0 +1,207 @@
+{% from "macros.html" import status_badge, scanner_state %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Панель управления</h1>
+    <div class="text-secondary small">Автоматическая сортировка сканов по штрихкодам</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    {{ scanner_state(scanner) }}
+    <form method="post" action="/scan" hx-post="/scan" hx-target="#dashboard-content" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-primary btn-sm" {% if not scanner.running %}disabled{% endif %}>
+        Запустить полное сканирование
+      </button>
+    </form>
+    {% if scanner.paused %}
+    <form method="post" action="/scan/resume" hx-post="/scan/resume" hx-target="#dashboard-content" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-success btn-sm">Возобновить</button>
+    </form>
+    {% else %}
+    <form method="post" action="/scan/pause" hx-post="/scan/pause" hx-target="#dashboard-content" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-outline-secondary btn-sm">Приостановить</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if scan_message %}
+<div class="alert alert-{{ scan_message_kind }} py-2" role="status">{{ scan_message }}</div>
+{% endif %}
+
+{% if scanner.last_error %}
+<div class="alert alert-danger py-2" role="alert">
+  <strong>Ошибка сканирования:</strong> {{ scanner.last_error }}
+</div>
+{% endif %}
+
+<div class="row row-cols-2 row-cols-md-4 row-cols-xl-7 g-2 mb-4">
+  <div class="col">
+    <div class="card stat-card h-100">
+      <div class="card-body py-3">
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-label">Всего документов</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card stat-card border-success-subtle h-100">
+      <div class="card-body py-3">
+        <div class="stat-value text-success">{{ stats.sorted }}</div>
+        <div class="stat-label">Отсортировано</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card stat-card border-warning-subtle h-100">
+      <div class="card-body py-3">
+        <div class="stat-value text-warning-emphasis">{{ stats.unmatched }}</div>
+        <div class="stat-label">Не найдено</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card stat-card h-100">
+      <div class="card-body py-3">
+        <div class="stat-value text-body">{{ stats.unreadable }}</div>
+        <div class="stat-label">Не распознано</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card stat-card border-primary-subtle h-100">
+      <div class="card-body py-3">
+        <div class="stat-value text-primary">{{ stats.needs_review }}</div>
+        <div class="stat-label">На проверку</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card stat-card border-danger-subtle h-100">
+      <div class="card-body py-3">
+        <div class="stat-value text-danger">{{ stats.errors }}</div>
+        <div class="stat-label">Ошибки</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card stat-card h-100">
+      <div class="card-body py-3">
+        <div class="stat-value text-secondary">{{ stats.queued }}</div>
+        <div class="stat-label">В очереди</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-xl-5">
+    <div class="card h-100">
+      <div class="card-header bg-white fw-semibold">Состояние сканера</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-7">Текущий статус</dt>
+          <dd class="col-5 text-end">
+            {% if scanner.scanning %}Идёт сканирование{% elif scanner.paused %}Приостановлен{% elif scanner.running %}Работает{% else %}Остановлен{% endif %}
+          </dd>
+          <dt class="col-7">Последнее сканирование</dt>
+          <dd class="col-5 text-end">{{ format_datetime(scanner.last_scan_at) }}</dd>
+          <dt class="col-7">Длительность прохода</dt>
+          <dd class="col-5 text-end">{{ format_duration(scanner.last_scan_duration) }}</dd>
+          <dt class="col-7">Интервал</dt>
+          <dd class="col-5 text-end">{{ scanner.scan_interval }} с</dd>
+          <dt class="col-7">Новых файлов в проходе</dt>
+          <dd class="col-5 text-end">{{ scanner.last_new_files }}</dd>
+          <dt class="col-7">Обработано в проходе</dt>
+          <dd class="col-5 text-end">{{ scanner.last_processed }}</dd>
+          <dt class="col-7">Активных документов</dt>
+          <dd class="col-5 text-end">{{ scanner.active_documents }}</dd>
+          <dt class="col-7">Исходная папка</dt>
+          <dd class="col-5 text-end">
+            {% if scanner.input_available is none %}не проверена
+            {% elif scanner.input_available %}доступна{% else %}<span class="text-danger">недоступна</span>{% endif %}
+          </dd>
+          <dt class="col-7">Защита входа</dt>
+          <dd class="col-5 text-end">
+            {% if scanner.input_readonly %}<span class="text-success">read-only</span>
+            {% elif scanner.input_readonly is none %}—
+            {% else %}<span class="text-warning">запись разрешена</span>{% endif %}
+          </dd>
+        </dl>
+        {% if scanner.input_readonly_message %}
+        <div class="small text-secondary mt-2">{{ scanner.input_readonly_message }}</div>
+        {% endif %}
+        {% if scanner.consecutive_failures %}
+        <div class="small text-danger mt-2">Неудачных проходов подряд: {{ scanner.consecutive_failures }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-7">
+    <div class="card h-100">
+      <div class="card-header bg-white fw-semibold">Результат последнего прохода</div>
+      <div class="card-body">
+        {% if scanner.last_status_counts %}
+        <div class="d-flex flex-wrap gap-2">
+          {% for status, count in scanner.last_status_counts.items() %}
+          <span class="badge text-bg-{{ status_css(status) }}">{{ status_label(status) }}: {{ count }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary mb-0">Нет обработанных документов в последнем проходе.</p>
+        {% endif %}
+        <p class="text-secondary small mt-3 mb-0">
+          Сканирование выполняется периодическим обходом директории. Повторная обработка
+          успешно скопированных файлов исключена с помощью SHA-256 и состояния в SQLite.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Последние операции</span>
+    <a class="small" href="/logs">Все журналы</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Файл</th>
+          <th>Штрихкод</th>
+          <th>Фамилия</th>
+          <th>Статус</th>
+          <th>Дата</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for document in recent %}
+        <tr>
+          <td class="file-name">
+            {{ document.file_name }}
+            {% if document.error_message %}
+            <div class="small text-secondary log-message">{{ document.error_message }}</div>
+            {% endif %}
+          </td>
+          <td class="barcode-cell">
+            {% if document.matched_barcode %}
+              {{ document.matched_barcode }}
+            {% elif document.barcode_values %}
+              {{ document.barcode_values|join(', ')|truncate(60) }}
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ document.surname or "—" }}</td>
+          <td>{{ status_badge(document.status) }}</td>
+          <td class="text-nowrap small">{{ format_datetime(document.updated_at) }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-secondary py-4">Документы пока не обработаны</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

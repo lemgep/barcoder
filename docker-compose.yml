@@ -1,0 +1,53 @@
+name: barcode-sorter
+
+services:
+  barcode-sorter:
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    container_name: barcode-sorter
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      # Paths inside the container are fixed by the mounts below. The host
+      # paths come from .env and are used in the volumes section.
+      INPUT_DIR: /app/input
+      OUTPUT_DIR: /app/output
+      DATA_DIR: /app/data
+      LOG_DIR: /app/logs
+      TZ: ${TZ:-Europe/Moscow}
+      WEB_HOST: ${WEB_HOST:-0.0.0.0}
+      WEB_PORT: ${WEB_PORT:-8000}
+    ports:
+      # Set WEB_BIND=127.0.0.1 when the UI is exposed through a reverse proxy.
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8000}:${WEB_PORT:-8000}"
+    volumes:
+      # The source directory is ALWAYS mounted read-only.
+      - "${INPUT_DIR:?INPUT_DIR must be set}:/app/input:ro"
+      - "${OUTPUT_DIR:?OUTPUT_DIR must be set}:/app/output"
+      - "${DATA_DIR:-./data}:/app/data"
+      - "${LOG_DIR:-./logs}:/app/logs"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=128m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    stop_grace_period: 45s
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

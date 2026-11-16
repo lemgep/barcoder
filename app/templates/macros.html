@@ -1,0 +1,15 @@
+{% macro status_badge(status) -%}
+<span class="badge rounded-pill text-bg-{{ status_css(status) }}">{{ status_label(status) }}</span>
+{%- endmacro %}
+
+{% macro scanner_state(scanner) -%}
+{% if scanner.scanning %}
+<span class="badge text-bg-info">Сканирование</span>
+{% elif scanner.paused %}
+<span class="badge text-bg-warning">Пауза</span>
+{% elif scanner.running %}
+<span class="badge text-bg-success">Работает</span>
+{% else %}
+<span class="badge text-bg-secondary">Остановлен</span>
+{% endif %}
+{%- endmacro %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Изменить запись — Сортировка сканов{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Изменить соответствие</div>
+      <div class="card-body">
+        {% if error %}
+        <div class="alert alert-danger" role="alert">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/barcodes/{{ item.id }}/edit">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="mb-3">
+            <label for="barcode" class="form-label">Штрихкод</label>
+            <input id="barcode" name="barcode" type="text" class="form-control" maxlength="256"
+                   value="{{ item.barcode }}" required autocomplete="off">
+          </div>
+          <div class="mb-4">
+            <label for="surname" class="form-label">Фамилия</label>
+            <input id="surname" name="surname" type="text" class="form-control" maxlength="150"
+                   value="{{ item.surname }}" required autocomplete="off">
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <a class="btn btn-outline-secondary" href="/barcodes">Отмена</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Вход — Сортировка сканов{% endblock %}
+{% block content %}
+<div class="row justify-content-center align-items-center login-row">
+  <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-1">Сортировка сканов</h1>
+        <p class="text-secondary small mb-4">Вход в административный интерфейс</p>
+        {% if error %}
+        <div class="alert alert-danger" role="alert">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/login">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="mb-3">
+            <label for="username" class="form-label">Имя пользователя</label>
+            <input id="username" name="username" type="text" class="form-control" autocomplete="username" required autofocus>
+          </div>
+          <div class="mb-4">
+            <label for="password" class="form-label">Пароль</label>
+            <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Войти</button>
+        </form>
+        <p class="text-secondary small mt-4 mb-0">
+          Учётные данные задаются переменными окружения на сервере.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

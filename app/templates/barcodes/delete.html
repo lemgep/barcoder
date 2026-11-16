@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Удаление записи — Сортировка сканов{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card border-danger-subtle">
+      <div class="card-header bg-white fw-semibold text-danger">Подтверждение удаления</div>
+      <div class="card-body">
+        <p>Удалить соответствие?</p>
+        <dl class="row mb-4">
+          <dt class="col-4">Штрихкод</dt>
+          <dd class="col-8 barcode-cell">{{ item.barcode }}</dd>
+          <dt class="col-4">Фамилия</dt>
+          <dd class="col-8">{{ item.surname }}</dd>
+        </dl>
+        <p class="text-secondary small">
+          Удаление записи не удаляет уже отсортированные документы и не изменяет исходную папку.
+          Последующие сканы с этим штрихкодом будут попадать в UNMATCHED.
+        </p>
+        <form method="post" action="/barcodes/{{ item.id }}/delete" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="confirm" value="yes">
+          <button type="submit" class="btn btn-danger">Удалить</button>
+          <a class="btn btn-outline-secondary" href="/barcodes">Отмена</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <title>{% block title %}Сортировка сканов{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <script src="{{ url_for('static', path='vendor/htmx.min.js') }}" defer></script>
+</head>
+<body>
+{% if current_user %}
+<nav class="navbar navbar-expand-lg navbar-dark app-navbar">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-semibold" href="/">Сортировка сканов</a>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <div class="navbar-nav flex-row flex-wrap gap-1">
+        <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">Главная</a>
+        <a class="nav-link {% if request.url.path.startswith('/barcodes') %}active{% endif %}" href="/barcodes">База штрихкодов</a>
+        <a class="nav-link {% if request.url.path.startswith('/logs') %}active{% endif %}" href="/logs">Журналы</a>
+      </div>
+      <form method="post" action="/logout" class="ms-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-outline-light btn-sm" type="submit">Выйти</button>
+      </form>
+    </div>
+  </div>
+</nav>
+{% endif %}
+
+<main class="container-fluid py-3 py-lg-4 app-main">
+  {% for flash in flashes %}
+  <div class="alert alert-{{ flash.category }} alert-dismissible fade show" role="alert">
+    {{ flash.message }}
+  </div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="container-fluid pb-3 text-secondary small app-footer">
+  Barcode Document Sorter v{{ app_version }} · часовой пояс {{ app_tz }}
+</footer>
+</body>
+</html>

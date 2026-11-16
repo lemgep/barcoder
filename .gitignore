@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Secrets and local configuration
+.env
+*.db
+*.db-wal
+*.db-shm
+.session_secret
+
+# Runtime data (never commit scanned documents)
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+output/*
+!output/.gitkeep
+
+# Test artefacts
+.coverage
+htmlcov/
+.docker-test/
+.smoke/
